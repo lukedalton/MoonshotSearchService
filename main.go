@@ -7,13 +7,13 @@ import (
 	"regexp"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/gorilla/mux"
 )
 
-func ExampleScrape() {
-	cardName := "liliana-of-the-veil-uma"
+func CardHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
 
-	// Request the HTML page.
-	res, err := http.Get("https://moonshotgamestore.com/products/" + cardName)
+	res, err := http.Get("https://moonshotgamestore.com/products/" + vars["cardName"])
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -22,28 +22,30 @@ func ExampleScrape() {
 		log.Fatalf("status code error: %d %s", res.StatusCode, res.Status)
 	}
 
-	// Load the HTML document
 	doc, err := goquery.NewDocumentFromReader(res.Body)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	price, e := regexp.Compile(`\$\d+\.\d+`)
+	regExpForprice, e := regexp.Compile(`\$\d+\.\d+`)
+	regExpForCardName, e := regexp.Compile(`(.)*`)
 
 	CheckError(e)
 
-	title := doc.Find(".price").Text()
-	stock := doc.Find(".product-form__add-button").Text()
+	priceFromPage := doc.Find(".price").Text()
+	stockFromPage := doc.Find(".product-form__add-button").Text()
+	titleFromPage := doc.Find(".product-meta__title").Text()
 
-	if stock != "Add to cart" {
-		stock = "Out of Stock"
+	if stockFromPage != "Add to cart" {
+		stockFromPage = "Out of Stock"
 	} else {
-		stock = "In stock"
+		stockFromPage = "In stock"
 	}
 
-	trimmed := price.Find([]byte(title))
+	trimmedPrice := regExpForprice.Find([]byte(priceFromPage))
+	trimmedTitle := regExpForCardName.Find([]byte(titleFromPage))
 
-	fmt.Println("Liliana of the Veil:", string(trimmed), stock)
+	fmt.Println(string(trimmedTitle), string(trimmedPrice), stockFromPage)
 
 }
 
@@ -54,5 +56,9 @@ func CheckError(e error) {
 }
 
 func main() {
-	ExampleScrape()
+	router := mux.NewRouter()
+	router.HandleFunc("/card/{cardName}", CardHandler)
+	http.Handle("/", router)
+
+	http.ListenAndServe(":8000", router)
 }
