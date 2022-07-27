@@ -1,14 +1,22 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
-	"regexp"
+	"strings"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/gorilla/mux"
 )
+
+type Card struct {
+	Title   string `json:"title"`
+	Price   string `json:"price"`
+	Set     string `json:"set"`
+	InStock bool   `json:"instock"`
+}
 
 func CardHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
@@ -27,25 +35,28 @@ func CardHandler(w http.ResponseWriter, r *http.Request) {
 		log.Fatal(err)
 	}
 
-	regExpForprice, e := regexp.Compile(`\$\d+\.\d+`)
-	regExpForCardName, e := regexp.Compile(`(.)*`)
-
-	CheckError(e)
-
 	priceFromPage := doc.Find(".price").Text()
 	stockFromPage := doc.Find(".product-form__add-button").Text()
 	titleFromPage := doc.Find(".product-meta__title").Text()
 
+	stockStatus := false
+
 	if stockFromPage != "Add to cart" {
-		stockFromPage = "Out of Stock"
+		stockStatus = false
 	} else {
-		stockFromPage = "In stock"
+		stockStatus = true
 	}
 
-	trimmedPrice := regExpForprice.Find([]byte(priceFromPage))
-	trimmedTitle := regExpForCardName.Find([]byte(titleFromPage))
+	cardName := strings.Split(titleFromPage, " :: ")
+	testPrice := strings.Split(priceFromPage, "$")
 
-	fmt.Println(string(trimmedTitle), string(trimmedPrice), stockFromPage)
+	card := Card{
+		Title: cardName[0], Price: testPrice[1], Set: cardName[1], InStock: stockStatus,
+	}
+
+	json.NewEncoder(w).Encode((card))
+
+	fmt.Println(cardName[0], testPrice[1], cardName[1], stockFromPage)
 
 }
 
