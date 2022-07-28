@@ -21,6 +21,8 @@ type Card struct {
 func CardHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 
+	// Currently Moonshot's URL plus /products/{Card Name} with - replacing spaces in the card name, and three letter set identifer at the end.
+	// If it is a foil, card-name-foil-set identifier.
 	res, err := http.Get("https://moonshotgamestore.com/products/" + vars["cardName"])
 	if err != nil {
 		log.Fatal(err)
@@ -37,27 +39,20 @@ func CardHandler(w http.ResponseWriter, r *http.Request) {
 
 	priceFromPage := doc.Find(".price").Text()
 	stockFromPage := doc.Find(".product-form__add-button").Text()
-	titleFromPage := doc.Find(".product-meta__title").Text()
+	cardNameFromPage := doc.Find(".product-meta__title").Text()
 
-	stockStatus := false
+	stockStatus := stockFromPage == "Add to cart"
 
-	if stockFromPage != "Add to cart" {
-		stockStatus = false
-	} else {
-		stockStatus = true
-	}
-
-	cardName := strings.Split(titleFromPage, " :: ")
-	testPrice := strings.Split(priceFromPage, "$")
+	// Split on space colon colon space, so that first string in array is actual card name, and the second is set three letter abbreviation.
+	cardName := strings.Split(cardNameFromPage, " :: ")
+	// Used a split here, because it was the only think I can get to work correctly. The first item in array is useless, the second contains price.
+	price := strings.Split(priceFromPage, "$")
 
 	card := Card{
-		Title: cardName[0], Price: testPrice[1], Set: cardName[1], InStock: stockStatus,
+		Title: cardName[0], Price: price[1], Set: cardName[1], InStock: stockStatus,
 	}
 
 	json.NewEncoder(w).Encode((card))
-
-	fmt.Println(cardName[0], testPrice[1], cardName[1], stockFromPage)
-
 }
 
 func CheckError(e error) {
