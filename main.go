@@ -21,38 +21,44 @@ type Card struct {
 func CardHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 
-	// Currently Moonshot's URL plus /products/{Card Name} with - replacing spaces in the card name, and three letter set identifer at the end.
+	// Currently Moonshot's URL plus /products/{Card Name} with "-"" replacing spaces in the card name, and three letter set identifer at the end.
 	// If it is a foil, card-name-foil-set identifier.
 	res, err := http.Get("https://moonshotgamestore.com/products/" + vars["cardName"])
 	if err != nil {
-		log.Fatal(err)
+		log.Panic(err)
 	}
 	defer res.Body.Close()
 	if res.StatusCode != 200 {
-		log.Fatalf("status code error: %d %s", res.StatusCode, res.Status)
+		log.Printf("status code error: %d %s", res.StatusCode, res.Status)
 	}
 
-	doc, err := goquery.NewDocumentFromReader(res.Body)
-	if err != nil {
-		log.Fatal(err)
+	if res.StatusCode == 200 {
+		doc, err := goquery.NewDocumentFromReader(res.Body)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		priceFromPage := doc.Find(".price").Text()
+		stockFromPage := doc.Find(".product-form__add-button").Text()
+		cardNameFromPage := doc.Find(".product-meta__title").Text()
+
+		stockStatus := stockFromPage == "Add to cart"
+
+		// Split on space colon colon space, so that first string in array is actual card name, and the second is set three letter abbreviation.
+		cardName := strings.Split(cardNameFromPage, " :: ")
+		// Used a split here, because it was the only think I can get to work correctly. The first item in array is useless, the second contains price.
+		price := strings.Split(priceFromPage, "$")
+
+		card := Card{
+			Title: cardName[0], Price: price[1], Set: cardName[1], InStock: stockStatus,
+		}
+
+		json.NewEncoder(w).Encode((card))
 	}
 
-	priceFromPage := doc.Find(".price").Text()
-	stockFromPage := doc.Find(".product-form__add-button").Text()
-	cardNameFromPage := doc.Find(".product-meta__title").Text()
-
-	stockStatus := stockFromPage == "Add to cart"
-
-	// Split on space colon colon space, so that first string in array is actual card name, and the second is set three letter abbreviation.
-	cardName := strings.Split(cardNameFromPage, " :: ")
-	// Used a split here, because it was the only think I can get to work correctly. The first item in array is useless, the second contains price.
-	price := strings.Split(priceFromPage, "$")
-
-	card := Card{
-		Title: cardName[0], Price: price[1], Set: cardName[1], InStock: stockStatus,
+	if res.StatusCode == 404 {
+		w.WriteHeader(res.StatusCode)
 	}
-
-	json.NewEncoder(w).Encode((card))
 }
 
 func CheckError(e error) {
