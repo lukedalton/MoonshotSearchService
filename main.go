@@ -12,9 +12,7 @@ import (
 )
 
 type Card struct {
-	Title   string `json:"title"`
 	Price   string `json:"price"`
-	Set     string `json:"set"`
 	InStock bool   `json:"instock"`
 }
 
@@ -40,17 +38,14 @@ func CardHandler(w http.ResponseWriter, r *http.Request) {
 
 		priceFromPage := doc.Find(".price").Text()
 		stockFromPage := doc.Find(".product-form__add-button").Text()
-		cardNameFromPage := doc.Find(".product-meta__title").Text()
 
 		stockStatus := stockFromPage == "Add to cart"
 
-		// Split on space colon colon space, so that first string in array is actual card name, and the second is set three letter abbreviation.
-		cardName := strings.Split(cardNameFromPage, " :: ")
 		// Used a split here, because it was the only think I can get to work correctly. The first item in array is useless, the second contains price.
 		price := strings.Split(priceFromPage, "$")
 
 		card := Card{
-			Title: cardName[0], Price: price[1], Set: cardName[1], InStock: stockStatus,
+			Price: price[1], InStock: stockStatus,
 		}
 
 		json.NewEncoder(w).Encode((card))
@@ -69,7 +64,7 @@ func CheckError(e error) {
 
 func main() {
 	router := mux.NewRouter()
-	router.HandleFunc("/card/{cardName}", CardHandler)
+	router.HandleFunc("/mtgcardstock/{cardName}", CardHandler)
 	http.Handle("/", router)
 
 	http.ListenAndServe(":8000", router)
